@@ -9,16 +9,41 @@ enum TrackSectionType{
 namespace PumpTrack{
     export class Track{
         public sections:BaseTrackSection[]
-        public getForce(x: number, y: number, radial: number): number {
+
+        //for output
+        public xFixed=0
+        public yFixed=0
+        public tangentDegreeFixed=Math.PI
+
+        public constructor(){
+            this.sections=[]
+        }
+
+        public draw(img: Image, color: number){
             for(let sec of this.sections){
-                if(sec.rangeX1<x&&x<sec.rangeX2){
-                    y = sec.fixPosition(x, y, radial)
-                    let degree = sec.getTangentDegree(x,y,radial)
-                    if(degree)
-                        return degree
+                sec.draw(img, color)
+            }
+        }
+
+        public isTouching(x: number, y: number, radial: number): boolean {
+            for(let sec of this.sections) {
+                if (sec.rangeX1 <= x && x <= sec.rangeX2) {
+                    return sec.isTouching(x, y, radial)
                 }
             }
-            return null
+            return false
+        }
+
+        public update(x: number, y: number, radial: number) {
+            this.xFixed = x
+            this.yFixed = y
+            this.tangentDegreeFixed = 0// Math.PI/2
+            for(let sec of this.sections){
+                if(sec.rangeX1<=x && x<=sec.rangeX2 && this.isTouching(x,y,radial)){
+                    this.yFixed = sec.fixPosition(x, y, radial)
+                    this.tangentDegreeFixed = sec.getTangentDegree(x,y,radial)
+                }
+            }
         }
 
     }
@@ -35,8 +60,9 @@ namespace PumpTrack{
             this.rangeX1=x1
             this.rangeX2=x2
         }
-        public draw(img: Image) {}
+        public draw(img: Image, color: number) {}
 
+        public isTouching(x: number, y: number, radial: number): boolean {return null}
         public fixPosition(x: number, y: number, radial: number): number { return null }
         public getTangentDegree(x:number,y:number, radial:number): number{return null}
     }
@@ -50,26 +76,50 @@ namespace PumpTrack{
             super()
             this.sectionType=TrackSectionType.arc
             this.setRange(rangeX1,rangeX2)
+            this.centerX=centerX
+            this.centerY=centerY
             this.radial=radial
             this.topHalf=topHalf
         }
 
-        public draw(img: Image){
-            img.drawCircle(this.centerX,this.centerY,this.radial, 1)
+        public draw(img: Image, color: number){
+            // img.drawCircle(this.centerX,this.centerY,this.radial, color)
+
+            for(let x=this.rangeX1;x<=this.rangeX2;x++){
+                const y= this.centerY + Math.sqrt(this.radial**2-(this.centerX-x)**2) * (this.topHalf?-1:1)
+                img.drawLine(x, y, x, img.height, color)
+            }
         }
 
-        public fixPosition(x: number, y: number, radial: number) {
-            const xDeltaSquare=(this.centerX-x)**2
+        public isTouching(x: number, y: number, radial: number):boolean{
+            const xDeltaSquare = (this.centerX - x) ** 2
+            const yDeltaSquare = (this.centerY - y) ** 2
+            if (this.topHalf) {
+                const rDeltaSquare = (this.radial + radial) ** 2
+                if (xDeltaSquare + yDeltaSquare <= rDeltaSquare) {
+                    return true
+                }
+            } else {
+                const rDeltaSquare = (this.radial - radial) ** 2
+                if (xDeltaSquare + yDeltaSquare >= rDeltaSquare) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        public fixPosition(x: number, y: number, radial: number):number {
+            const xDeltaSquare=(this.centerX-x) ** 2
             const yDeltaSquare = (this.centerY - y) ** 2
             if(this.topHalf){
-                const rDeltaSquare = (this.radial+radial)**2
-                if (xDeltaSquare + yDeltaSquare < rDeltaSquare){
+                const rDeltaSquare = (this.radial+radial) ** 2
+                if (xDeltaSquare + yDeltaSquare <= rDeltaSquare){
                     //fix upward
                     return this.centerY - Math.sqrt(rDeltaSquare - xDeltaSquare)
                 }
             }else{
                 const rDeltaSquare = (this.radial-radial)**2
-                if (xDeltaSquare + yDeltaSquare > rDeltaSquare) {
+                if (xDeltaSquare + yDeltaSquare >= rDeltaSquare) {
                     //fix upward
                     return this.centerY + Math.sqrt(rDeltaSquare - xDeltaSquare)
                 }
@@ -78,7 +128,35 @@ namespace PumpTrack{
         }
 
         public getTangentDegree(x: number, y: number, radial: number): number {
-            return Math.atan2(this.centerX -x,this.centerY-y) //swap x & y for turned 90°
+            return -Math.atan2(this.centerY - y, this.centerX - x) //swap x & y for turned 90°
+        }
+    }
+
+    export class lineTrackSection extends BaseTrackSection {
+        public height: number
+        public constructor(rangeX1: number, rangeX2: number, height:number) {
+            super()
+            this.sectionType = TrackSectionType.line
+            this.setRange(rangeX1, rangeX2)
+            this.height = height
+        }
+
+        public draw(img: Image,color:number) {
+            // img.drawLine(this.rangeX1,this.height,this.rangeX2,this.height,color)
+
+            img.fillRect(this.rangeX1, this.height, this.rangeX2 - this.rangeX1, img.height - this.height, color)
+        }
+
+        public isTouching(x: number, y: number, radial: number): boolean {
+            return (y + radial>=this.height)
+        }
+
+        public fixPosition(x: number, y: number, radial: number): number {
+            return this.height-radial
+        }
+
+        public getTangentDegree(x: number, y: number, radial: number): number {
+            return Math.PI/2
         }
     }
 
