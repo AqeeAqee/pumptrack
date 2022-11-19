@@ -11,6 +11,7 @@ namespace PumpTrack{
         public sections:BaseTrackSection[]
 
         //for output
+        public isTouched=false
         public xFixed=0
         public yFixed=0
         public tangentDegreeFixed=Math.PI
@@ -20,8 +21,10 @@ namespace PumpTrack{
         }
 
         public draw(img: Image, color: number){
-            for(let sec of this.sections){
-                sec.draw(img, color)
+            for(let i=0;i<this.sections.length;i++){
+                const sec = this.sections[i]
+                sec.draw(img, color++)
+                img.print(i.toString(),(sec.rangeX1+sec.rangeX2)/2, img.height-9,1)
             }
         }
 
@@ -39,7 +42,8 @@ namespace PumpTrack{
             this.yFixed = y
             this.tangentDegreeFixed = 0// Math.PI/2
             for(let sec of this.sections){
-                if(sec.rangeX1<=x && x<=sec.rangeX2 && this.isTouching(x,y,radial)){
+                this.isTouched= this.isTouching(x, y, radial)
+                if (sec.rangeX1 <= x && x <= sec.rangeX2 && this.isTouched){
                     this.yFixed = sec.fixPosition(x, y, radial)
                     this.tangentDegreeFixed = sec.getTangentDegree(x,y,radial)
                 }
@@ -128,7 +132,7 @@ namespace PumpTrack{
         }
 
         public getTangentDegree(x: number, y: number, radial: number): number {
-            return -Math.atan2(this.centerY - y, this.centerX - x) //swap x & y for turned 90°
+            return -Math.atan2(this.centerY - y, this.centerX - x) + Math.PI / 2 //swap x & y for turned 90°
         }
     }
 
@@ -156,7 +160,7 @@ namespace PumpTrack{
         }
 
         public getTangentDegree(x: number, y: number, radial: number): number {
-            return Math.PI/2
+            return Math.PI
         }
     }
 
